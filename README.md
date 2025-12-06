@@ -118,4 +118,4 @@ Classviva Question Helper 是一个 Tampermonkey 用户脚本，为 Classviva �
 
 ## 📜 7. 许可证
 
-本项目采用 **MIT 许可证**：请参阅 [LICENSE](https://github.com/Wu-Qizhen/ClassvivaQuestionHelper/LICENSE) 文件获取详细信息
+本项目采用 **MIT 许可证**：请参阅 [LICENSE](https://github.com/Wu-Qizhen/ClassvivaQuestionHelper/blob/master/LICENSE) 文件获取详细信息
