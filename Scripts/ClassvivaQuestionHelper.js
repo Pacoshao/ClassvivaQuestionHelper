@@ -189,17 +189,23 @@
                     padding: 6px 12px;
                     background: #67c23a;
                     color: white;
-                    border: none;
                     border-radius: 8px;
                     cursor: pointer;
                     font-size: 14px;
                     font-weight: 500;
                     transition: all 0.2s;
+                    outline: none !important;
+                    border: none !important;
+                    box-shadow: none !important;
                 }
                 
                 .cv-button:hover {
                     background: #509f6c;
-                    transform: translateY(-1px);
+                    transform: translateY(-1px) !important;
+                }
+                
+                .cv-button:active {
+                    transform: scale(0.98) !important;
                 }
                 
                 .cv-button-secondary {
@@ -208,6 +214,11 @@
                 
                 .cv-button-secondary:hover {
                     background: #3375b9;
+                }
+                
+                .cv-button:focus,
+                .cv-button:active {
+                    transform: scale(0.98) !important;
                 }
                 
                 /* 导航栏图标样式 */
@@ -270,9 +281,15 @@
             this.modal.innerHTML = `
                 <div class="cv-modal-header">
                     <h3 class="cv-modal-title">Classviva Question Helper | 题式精萃</h3>
-                    <button class="cv-modal-close cv-fun-close">✕</button>
+                    <button class="cv-modal-close cv-fun-close cv-button" style="
+                        background: transparent !important;
+                        color: white !important;
+                        padding: 0 !important;
+                        min-width: auto !important;
+                    ">✕</button>
                 </div>
                 <div class="cv-modal-body">
+                    <!-- 特征项保持不变 -->
                     <div class="cv-feature-item">
                         <span class="cv-feature-icon">📋</span>
                         <div class="cv-feature-text">
@@ -317,6 +334,25 @@
 
             // 添加事件监听
             this.modal.querySelectorAll('.cv-fun-close').forEach(btn => {
+                // 添加鼠标事件
+                /*btn.addEventListener('mouseover', (e) => {
+                    e.target.style.background = '#509f6c';
+                });
+
+                btn.addEventListener('mouseout', (e) => {
+                    e.target.style.background = '#67c23a';
+                });*/
+
+                btn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.target.style.transform = 'scale(0.98)';
+                });
+
+                btn.addEventListener('mouseup', (e) => {
+                    e.target.style.transform = 'scale(1)';
+                });
+
+                // 点击关闭功能
                 btn.addEventListener('click', () => this.hide());
             });
 
