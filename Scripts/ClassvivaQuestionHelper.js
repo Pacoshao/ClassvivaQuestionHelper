@@ -8,7 +8,7 @@
 // @name         Classviva Question Helper | 题式精萃
 // @description  智能提取 Classviva 题目、处理 LaTeX 公式，支持一键复制
 // @author       Code IntelliX
-// @version      0.1
+// @version      0.2
 // @icon         https://www.classviva.org/pluginfile.php?file=%2F1%2Fcore_admin%2Flogocompact%2F100x100%2F1731391655%2Ffavicon.png
 // @match        *://*.classviva.org/*
 // @match        *://*.classviva.hkust-gz.edu.cn/*
@@ -24,7 +24,7 @@
     // ========== 配置 ==========
     const CONFIG = {
         debug: false,
-        version: '0.1',
+        version: '0.2',
         author: 'Code IntelliX',
         github: 'https://github.com/Wu-Qizhen/ClassvivaQuestionHelper'
     };
@@ -323,6 +323,9 @@
                     <div class="cv-version-info">
                         <span>Version ${CONFIG.version} | Developed by ${CONFIG.author}</span>
                     </div>
+                    <button class="cv-button" id="cv-copy-all-btn">
+                        复制全部题目
+                    </button>
                     <button class="cv-button cv-button-secondary" onclick="window.open('${CONFIG.github}', '_blank')">
                         项目主页
                     </button>
@@ -355,6 +358,15 @@
                 // 点击关闭功能
                 btn.addEventListener('click', () => this.hide());
             });
+
+            const copyAllButton = this.modal.querySelector('#cv-copy-all-btn');
+            if (copyAllButton) {
+                copyAllButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    ButtonManager.copyAllQuestions();
+                });
+            }
 
             document.body.appendChild(this.backdrop);
             document.body.appendChild(this.modal);
@@ -438,6 +450,9 @@
         extract(container) {
             const clone = container.cloneNode(true);
 
+            // 保留用户当前填写的答案（运行时 value），避免 clone 丢失输入值。
+            this._syncFormValues(container, clone);
+
             // 清理不需要的元素
             this._cleanElements(clone);
 
@@ -447,6 +462,30 @@
 
             // 处理结果
             return this._processContent(contentPieces);
+        },
+
+        _syncFormValues(sourceRoot, targetRoot) {
+            const sourceControls = sourceRoot.querySelectorAll('input, textarea, select');
+            const targetControls = targetRoot.querySelectorAll('input, textarea, select');
+
+            sourceControls.forEach((sourceControl, index) => {
+                const targetControl = targetControls[index];
+                if (!targetControl) return;
+
+                if (sourceControl.tagName === 'TEXTAREA') {
+                    targetControl.value = sourceControl.value;
+                    targetControl.textContent = sourceControl.value;
+                } else if (sourceControl.tagName === 'SELECT') {
+                    targetControl.value = sourceControl.value;
+                } else if (sourceControl.tagName === 'INPUT') {
+                    const inputType = (sourceControl.type || '').toLowerCase();
+                    if (inputType === 'checkbox' || inputType === 'radio') {
+                        targetControl.checked = sourceControl.checked;
+                    } else {
+                        targetControl.value = sourceControl.value;
+                    }
+                }
+            });
         },
 
         _cleanElements(element) {
@@ -469,6 +508,12 @@
                 const text = node.textContent.trim();
                 if (text) pieces.push(text);
             } else if (node.nodeType === Node.ELEMENT_NODE) {
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName)) {
+                    const controlValue = this._extractFormControlValue(node);
+                    if (controlValue) pieces.push(controlValue);
+                    return;
+                }
+
                 if (node.tagName === 'SCRIPT' && node.type?.includes('math/tex')) {
                     const latex = node.textContent.trim();
                     if (latex) {
@@ -481,6 +526,61 @@
                     if (isBlockElement) pieces.push('\n\n');
                 }
             }
+        },
+
+        _extractFormControlValue(element) {
+            if (element.tagName === 'TEXTAREA') {
+                const value = (element.value || element.textContent || '').trim();
+                return value || '';
+            }
+
+            if (element.tagName === 'SELECT') {
+                const selectedOption = element.options?.[element.selectedIndex];
+                const label = selectedOption?.textContent?.trim() || '';
+                const value = (element.value || '').trim();
+                return label || value;
+            }
+
+            if (element.tagName === 'INPUT') {
+                const inputType = (element.type || '').toLowerCase();
+
+                if (inputType === 'hidden') return '';
+
+                if (inputType === 'checkbox' || inputType === 'radio') {
+                    if (!element.checked) return '';
+                    const labelText = this._extractControlLabelText(element);
+                    if (labelText) return `[已选] ${labelText}`;
+                    const value = (element.value || '').trim();
+                    return value && value.toLowerCase() !== 'on' ? value : '已勾选';
+                }
+
+                return (element.value || '').trim();
+            }
+
+            return '';
+        },
+
+        _extractControlLabelText(control) {
+            const controlId = control.id || '';
+            let labelElement = null;
+
+            if (controlId) {
+                try {
+                    labelElement = control.ownerDocument?.querySelector(`label[for="${CSS.escape(controlId)}"]`);
+                } catch (error) {
+                    labelElement = control.ownerDocument?.querySelector(`label[for="${controlId}"]`);
+                }
+            }
+
+            if (!labelElement) {
+                labelElement = control.closest('label');
+            }
+
+            if (!labelElement) return '';
+
+            const labelClone = labelElement.cloneNode(true);
+            labelClone.querySelectorAll('input, textarea, select, script, style').forEach(el => el.remove());
+            return (labelClone.textContent || '').trim();
         },
 
         _isMathJaxElement(element) {
@@ -505,6 +605,24 @@
             this._setupNavIcon();
         },
 
+        copyAllQuestions() {
+            const allContent = this._collectQuestionContents();
+
+            if (allContent.length === 0) {
+                NotificationManager.show('⚠ 未找到可复制题目');
+                logger.warn('未找到可复制题目');
+                return;
+            }
+
+            const mergedContent = allContent
+                .map(item => `【题目 ${item.number}】\n${item.content}`)
+                .join('\n\n--------------------\n\n');
+
+            GM_setClipboard(mergedContent);
+            NotificationManager.show(`✓ 已复制全部题目（${allContent.length} 题）`);
+            logger.log(`已复制全部题目，共 ${allContent.length} 题`);
+        },
+
         _setupCopyButtons() {
             const questions = document.querySelectorAll('div[id^="question-"]');
             let addedCount = 0;
@@ -525,6 +643,31 @@
             if (addedCount > 0) {
                 logger.log(`添加了 ${addedCount} 个复制按钮`);
             }
+        },
+
+        _collectQuestionContents() {
+            const questions = Array.from(document.querySelectorAll('div[id^="question-"]'));
+
+            return questions
+                .filter(questionDiv => /^question-\d+-\d+$/.test(questionDiv.id))
+                .map(questionDiv => {
+                    const contentElement = questionDiv.querySelector('.local_testopaqueqe');
+                    const rawNumber = questionDiv.id.split('-').pop();
+                    const number = Number.parseInt(rawNumber, 10);
+
+                    if (!contentElement) return null;
+
+                    const content = ContentExtractor.extract(contentElement);
+                    if (!content) return null;
+
+                    return {
+                        number: Number.isNaN(number) ? rawNumber : number,
+                        order: Number.isNaN(number) ? Number.MAX_SAFE_INTEGER : number,
+                        content
+                    };
+                })
+                .filter(Boolean)
+                .sort((a, b) => a.order - b.order);
         },
 
         _createCopyButton(questionId, contentElement) {
