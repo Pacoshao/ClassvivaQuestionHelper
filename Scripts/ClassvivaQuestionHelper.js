@@ -495,6 +495,13 @@
                 'button',
                 '.material-icons',
                 '.MathJax_Preview',
+                '.MathJax_CHTML_no_print',
+                '.MathJax_no_print',
+                '.MathJax_Display_no_print',
+                '.MJX_Assistive_MathML',
+                '.MathJax',
+                '.mjx-chtml',
+                '.MathJax_CHTML',
                 'p.footer'
             ];
 
@@ -549,7 +556,7 @@
                 if (inputType === 'checkbox' || inputType === 'radio') {
                     if (!element.checked) return '';
                     const labelText = this._extractControlLabelText(element);
-                    if (labelText) return `[已选] ${labelText}`;
+                    if (labelText) return `[已选->] ${labelText}`;
                     const value = (element.value || '').trim();
                     return value && value.toLowerCase() !== 'on' ? value : '已勾选';
                 }
@@ -624,17 +631,18 @@
         },
 
         _setupCopyButtons() {
-            const questions = document.querySelectorAll('div[id^="question-"]');
+            const questions = document.querySelectorAll('div[id^="question-"], div.que.description');
             let addedCount = 0;
 
             questions.forEach(questionDiv => {
-                if (!/^question-\d+-\d+$/.test(questionDiv.id)) return;
+                const isDescription = questionDiv.classList.contains('description');
+                if (!isDescription && !/^question-\d+-\d+$/.test(questionDiv.id)) return;
 
                 const infoElement = questionDiv.querySelector('.info');
-                const contentElement = questionDiv.querySelector('.local_testopaqueqe');
+                const contentElement = questionDiv.querySelector('.content');
 
                 if (infoElement && contentElement && !infoElement.querySelector('.cv-copy-btn')) {
-                    const button = this._createCopyButton(questionDiv.id, contentElement);
+                    const button = this._createCopyButton(questionDiv.id || 'desc', contentElement);
                     infoElement.appendChild(button);
                     addedCount++;
                 }
@@ -646,14 +654,18 @@
         },
 
         _collectQuestionContents() {
-            const questions = Array.from(document.querySelectorAll('div[id^="question-"]'));
+            const questions = Array.from(document.querySelectorAll('div[id^="question-"], div.que.description'));
 
             return questions
-                .filter(questionDiv => /^question-\d+-\d+$/.test(questionDiv.id))
-                .map(questionDiv => {
-                    const contentElement = questionDiv.querySelector('.local_testopaqueqe');
-                    const rawNumber = questionDiv.id.split('-').pop();
-                    const number = Number.parseInt(rawNumber, 10);
+                .filter(questionDiv => {
+                    return questionDiv.classList.contains('description') || /^question-\d+-\d+$/.test(questionDiv.id);
+                })
+                .map((questionDiv, index) => {
+                    const contentElement = questionDiv.querySelector('.content');
+                    const isDescription = questionDiv.classList.contains('description');
+                    const rawId = questionDiv.id || `desc-${index}`;
+                    const rawNumber = isDescription ? '资料' : rawId.split('-').pop();
+                    const number = isDescription ? NaN : Number.parseInt(rawNumber, 10);
 
                     if (!contentElement) return null;
 
@@ -661,8 +673,8 @@
                     if (!content) return null;
 
                     return {
-                        number: Number.isNaN(number) ? rawNumber : number,
-                        order: Number.isNaN(number) ? Number.MAX_SAFE_INTEGER : number,
+                        number: isDescription ? '说明/背景' : rawNumber,
+                        order: Number.isNaN(number) ? index - 1000 : number, // 资料通常在前面，给个较小的 order
                         content
                     };
                 })
@@ -673,7 +685,8 @@
         _createCopyButton(questionId, contentElement) {
             const button = document.createElement('button');
             button.className = 'cv-copy-btn';
-            button.textContent = '复制题目';
+            const isDesc = questionId === 'desc' || questionId.startsWith('desc-');
+            button.textContent = isDesc ? '复制说明' : '复制题目';
 
             Object.assign(button.style, {
                 width: '100%',
@@ -722,15 +735,15 @@
                 // 显示反馈
                 button.textContent = '✓ 已复制';
                 button.style.background = 'linear-gradient(135deg, #4caf50 0%, #3ecc5f 100%)';
-                const lastNumber = questionId.split('-').pop();
-                NotificationManager.show(`✓ 题目 ${lastNumber} 已复制`);
+                const lastNumber = isDesc ? '背景说明' : questionId.split('-').pop();
+                NotificationManager.show(`✓ ${isDesc ? '' : '题目 '}${lastNumber} 已复制`);
 
                 setTimeout(() => {
-                    button.textContent = '复制题目';
+                    button.textContent = isDesc ? '复制说明' : '复制题目';
                     button.style.background = 'linear-gradient(135deg, #67c23a 0%, #3ecc5f 100%)';
                 }, 1500);
 
-                logger.log(`已复制题目 ${lastNumber}`);
+                logger.log(`已复制内容 ${lastNumber}`);
             });
 
             return button;
