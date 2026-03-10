@@ -499,9 +499,8 @@
                 '.MathJax_no_print',
                 '.MathJax_Display_no_print',
                 '.MJX_Assistive_MathML',
-                '.MathJax',
-                '.mjx-chtml',
-                '.MathJax_CHTML',
+                '.MathJax_Preview', // 针对 preview 内容
+                '.mjx-chtml.MathJax_CHTML', // 针对渲染后的容器
                 '.local_ocr-notice', // OCR 校对提示通常所在的类
                 '.ocr-instruction', // 其他可能的类名
                 'p.footer'
@@ -511,11 +510,15 @@
                 element.querySelectorAll(selector).forEach(el => el.remove());
             });
 
-            // 针对包含特定文字的 blockquote 或 div 进行深度清理
+            // 针对包含特定文字的 blockquote 或 div 进行深度清理，但排除 script 标签以防误删公式源码
             const textsToMatch = ['助教将根据OCR', 'Optical Character Recognition'];
             element.querySelectorAll('div, blockquote, p, span').forEach(el => {
-                if (textsToMatch.some(txt => el.textContent.includes(txt))) {
-                    el.remove();
+                // 如果元素本身或其直接子文本包含关键字，则移除
+                // 避开直接在脚本中的匹配，因为脚本已经被 selectors 过滤或需要保留 math/tex
+                if (el.children.length === 0 || Array.from(el.childNodes).some(n => n.nodeType === 3 && textsToMatch.some(txt => n.textContent.includes(txt)))) {
+                    if (textsToMatch.some(txt => el.textContent.includes(txt))) {
+                        el.remove();
+                    }
                 }
             });
         },
