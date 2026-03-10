@@ -502,11 +502,21 @@
                 '.MathJax',
                 '.mjx-chtml',
                 '.MathJax_CHTML',
+                '.local_ocr-notice', // OCR 校对提示通常所在的类
+                '.ocr-instruction', // 其他可能的类名
                 'p.footer'
             ];
 
             selectors.forEach(selector => {
                 element.querySelectorAll(selector).forEach(el => el.remove());
+            });
+
+            // 针对包含特定文字的 blockquote 或 div 进行深度清理
+            const textsToMatch = ['助教将根据OCR', 'Optical Character Recognition'];
+            element.querySelectorAll('div, blockquote, p, span').forEach(el => {
+                if (textsToMatch.some(txt => el.textContent.includes(txt))) {
+                    el.remove();
+                }
             });
         },
 
